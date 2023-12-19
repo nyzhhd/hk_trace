@@ -13,6 +13,7 @@ import numpy as np
 from yolo import YOLO, YOLO_ONNX
 import math
 import threading
+import cv2
 # 创建一个线程安全的队列
 file_queue = queue.Queue()
 # 登录的设备信息
@@ -20,7 +21,6 @@ DEV_IP = create_string_buffer(b'169.254.104.194')
 DEV_PORT = 8000
 DEV_USER_NAME = create_string_buffer(b'admin')
 DEV_PASSWORD = create_string_buffer(b'gyb18800')
-import cv2
 WINDOWS_FLAG = True
 win = None  # 预览窗口
 funcRealDataCallBack_V30 = None  # 实时预览回调函数，需要定义为全局的
@@ -186,18 +186,10 @@ def DecCBFun(nPort, pBuf, nSize, pFrameInfo, nUser, nReserved2):
             i1=0
         i1=i1+1
 
-        #show_image(sFileName )
-        # 示例用法
-        # draw_box_and_save(sFileName, (50, 50, 150, 150))  
-        # sleep(1)
-
         if lRet == 0:
             print('PlayM4_ConvertToJpegFile fail, error code is:', Playctrldll.PlayM4_GetLastError(nPort))
         else:
             print('PlayM4_ConvertToJpegFile success')
-
-
-
 
 def RealDataCallBack_V30(lPlayHandle, dwDataType, pBuffer, dwBufSize, pUser):
     # 码流回调函数

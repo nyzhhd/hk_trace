@@ -114,6 +114,7 @@ def display_image():
                         # //DOWN_LEFT        27    /* 云台以SS的速度下俯和左转 */
                         # //DOWN_RIGHT        28    /* 云台以SS的速度下俯和右转 */
                         # //PAN_AUTO        29    /* 云台以SS的速度左右自动扫描 */
+                        
                 else:
                     pass
                     #TODO：运动目标轨迹预测

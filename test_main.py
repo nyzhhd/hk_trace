@@ -24,17 +24,13 @@ import cv2
 WINDOWS_FLAG = True
 win = None  # 预览窗口
 funcRealDataCallBack_V30 = None  # 实时预览回调函数，需要定义为全局的
-
 PlayCtrl_Port = c_long(-1)  # 播放句柄
 Playctrldll = None  # 播放库
 FuncDecCB = None   # 播放库解码回调函数，需要定义为全局的
 i1 = 0
-
 yolo = YOLO()
 crop            = False
 count           = False
-
-
 def calculate_dynamic_sleep(diff_x, diff_y, max_diff, min_sleep, max_sleep):
     # 计算总的距离
     distance = math.sqrt(diff_x ** 2 + diff_y ** 2)
@@ -130,7 +126,6 @@ def start_image_display_thread():
     display_thread = threading.Thread(target=display_image)
     display_thread.daemon = True
     display_thread.start()
-
 
 # 获取当前系统环境
 def GetPlatform():

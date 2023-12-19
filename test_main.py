@@ -1,5 +1,4 @@
 # coding=utf-8
-
 import os
 import platform
 import tkinter
@@ -8,16 +7,14 @@ from HCNetSDK import *
 from PlayCtrl import *
 from time import sleep
 import time
-from PIL import Image, ImageTk, ImageDraw
-import matplotlib.pyplot as plt
+from PIL import Image
 import queue
 import numpy as np
-
+from yolo import YOLO, YOLO_ONNX
+import math
 import threading
-sFileName='../../pic/test_stamp[0].jpg'
 # 创建一个线程安全的队列
 file_queue = queue.Queue()
-
 # 登录的设备信息
 DEV_IP = create_string_buffer(b'169.254.104.194')
 DEV_PORT = 8000
@@ -32,12 +29,11 @@ PlayCtrl_Port = c_long(-1)  # 播放句柄
 Playctrldll = None  # 播放库
 FuncDecCB = None   # 播放库解码回调函数，需要定义为全局的
 i1 = 0
-from yolo import YOLO, YOLO_ONNX
+
 yolo = YOLO()
 crop            = False
 count           = False
 
-import math
 
 def calculate_dynamic_sleep(diff_x, diff_y, max_diff, min_sleep, max_sleep):
     # 计算总的距离

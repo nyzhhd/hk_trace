@@ -31,6 +31,8 @@ i1 = 0
 yolo = YOLO()
 crop            = False
 count           = False
+
+mode=1   #mode=1代表跟踪，mode=0代表预测
 def calculate_dynamic_sleep(diff_x, diff_y, max_diff, min_sleep, max_sleep):
     # 计算总的距离
     distance = math.sqrt(diff_x ** 2 + diff_y ** 2)
@@ -66,54 +68,56 @@ def display_image():
                 box_center_x = (kuang[0] + kuang[2]) / 2
                 box_center_y = (kuang[1] + kuang[3]) / 2
 
-                # 计算图像的中心点
-                img_center_x = frame.shape[1] / 2
-                img_center_y = frame.shape[0] / 2
+                if mode:
+                    # 计算图像的中心点
+                    img_center_x = frame.shape[1] / 2
+                    img_center_y = frame.shape[0] / 2
 
-                # 设置移动的阈值
-                threshold = 20  # 可以根据需要调整这个值
+                    # 设置移动的阈值
+                    threshold = 20  # 可以根据需要调整这个值
 
-                # 计算框中心与图像中心的差异
-                diff_x = box_center_x - img_center_x
-                diff_y = box_center_y - img_center_y
+                    # 计算框中心与图像中心的差异
+                    diff_x = box_center_x - img_center_x
+                    diff_y = box_center_y - img_center_y
 
-                # 根据位置差异选择控制命令
-                command = None
-                if abs(diff_x) > threshold or abs(diff_y) > threshold:
-                    dynamic_sleep = calculate_dynamic_sleep(diff_x, diff_y, 200, 0.1, 0.5)  # 参数可根据需要调整
-                    if diff_x < -threshold and diff_y < -threshold:
-                        command = UP_LEFT
-                    elif diff_x > threshold and diff_y < -threshold:
-                        command = UP_RIGHT
-                    elif diff_x < -threshold and diff_y > threshold:
-                        command = DOWN_LEFT
-                    elif diff_x > threshold and diff_y > threshold:
-                        command = DOWN_RIGHT
-                    elif diff_x < -threshold:
-                        command = PAN_LEFT
-                    elif diff_x > threshold:
-                        command = PAN_RIGHT
-                    elif diff_y < -threshold:
-                        command = TILT_UP
-                    elif diff_y > threshold:
-                        command = TILT_DOWN
-
-                # 控制摄像头移动
-                if command is not None:
-                    Objdll.NET_DVR_PTZControl(lRealPlayHandle, command, 0)
-                    time.sleep(dynamic_sleep)
-                    Objdll.NET_DVR_PTZControl(lRealPlayHandle, command, 1)
-
-
-            # //TILT_UP            21    /* 云台以SS的速度上仰 */
-            # //TILT_DOWN        22    /* 云台以SS的速度下俯 */
-            # //PAN_LEFT        23    /* 云台以SS的速度左转 */
-            # //PAN_RIGHT        24    /* 云台以SS的速度右转 */
-            # //UP_LEFT            25    /* 云台以SS的速度上仰和左转 */
-            # //UP_RIGHT        26    /* 云台以SS的速度上仰和右转 */
-            # //DOWN_LEFT        27    /* 云台以SS的速度下俯和左转 */
-            # //DOWN_RIGHT        28    /* 云台以SS的速度下俯和右转 */
-            # //PAN_AUTO        29    /* 云台以SS的速度左右自动扫描 */
+                    # 根据位置差异选择控制命令
+                    command = None
+                    if abs(diff_x) > threshold or abs(diff_y) > threshold:
+                        dynamic_sleep = calculate_dynamic_sleep(diff_x, diff_y, 200, 0.1, 0.5)  # 参数可根据需要调整
+                        if diff_x < -threshold and diff_y < -threshold:
+                            command = UP_LEFT
+                        elif diff_x > threshold and diff_y < -threshold:
+                            command = UP_RIGHT
+                        elif diff_x < -threshold and diff_y > threshold:
+                            command = DOWN_LEFT
+                        elif diff_x > threshold and diff_y > threshold:
+                            command = DOWN_RIGHT
+                        elif diff_x < -threshold:
+                            command = PAN_LEFT
+                        elif diff_x > threshold:
+                            command = PAN_RIGHT
+                        elif diff_y < -threshold:
+                            command = TILT_UP
+                        elif diff_y > threshold:
+                            command = TILT_DOWN
+                    # 控制摄像头移动
+                    if command is not None:
+                        Objdll.NET_DVR_PTZControl(lRealPlayHandle, command, 0)
+                        time.sleep(dynamic_sleep)
+                        Objdll.NET_DVR_PTZControl(lRealPlayHandle, command, 1)
+                        # //TILT_UP            21    /* 云台以SS的速度上仰 */
+                        # //TILT_DOWN        22    /* 云台以SS的速度下俯 */
+                        # //PAN_LEFT        23    /* 云台以SS的速度左转 */
+                        # //PAN_RIGHT        24    /* 云台以SS的速度右转 */
+                        # //UP_LEFT            25    /* 云台以SS的速度上仰和左转 */
+                        # //UP_RIGHT        26    /* 云台以SS的速度上仰和右转 */
+                        # //DOWN_LEFT        27    /* 云台以SS的速度下俯和左转 */
+                        # //DOWN_RIGHT        28    /* 云台以SS的速度下俯和右转 */
+                        # //PAN_AUTO        29    /* 云台以SS的速度左右自动扫描 */
+                else:
+                    pass
+                    #TODO：运动目标轨迹预测
+                    
             key = cv2.waitKey(50) & 0xFF
             if key == ord('q'):
                 break
@@ -313,29 +317,8 @@ if __name__ == '__main__':
         exit()
 
     start_image_display_thread()
-
-
-    # while 1:
-    #       pass
     #show Windows
     win.mainloop()
-
-    # 开始云台控制
-    lRet = Objdll.NET_DVR_PTZControl(lRealPlayHandle, PAN_LEFT, 0)
-    if lRet == 0:
-        print ('Start ptz control fail, error code is: %d' % Objdll.NET_DVR_GetLastError())
-    else:
-        print ('Start ptz control success')
-
-    # 转动一秒
-    sleep(1)
-
-    # 停止云台控制
-    lRet = Objdll.NET_DVR_PTZControl(lRealPlayHandle, PAN_LEFT, 1)
-    if lRet == 0:
-        print('Stop ptz control fail, error code is: %d' % Objdll.NET_DVR_GetLastError())
-    else:
-        print('Stop ptz control success')
 
     # 关闭预览
     Objdll.NET_DVR_StopRealPlay(lRealPlayHandle)

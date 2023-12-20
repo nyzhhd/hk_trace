@@ -17,7 +17,7 @@ import cv2
 # 创建一个线程安全的队列
 file_queue = queue.Queue()
 # 登录的设备信息
-DEV_IP = create_string_buffer(b'169.254.104.194')
+DEV_IP = create_string_buffer(b'169.254.85.211')
 DEV_PORT = 8000
 DEV_USER_NAME = create_string_buffer(b'admin')
 DEV_PASSWORD = create_string_buffer(b'gyb18800')
@@ -31,6 +31,9 @@ i1 = 0
 yolo = YOLO()
 crop            = False
 count           = False
+history_centers = []  # 存储历史中心点坐标
+max_history = 10      # 最大历史记录数，可以根据需要调整
+
 
 mode=1   #mode=1代表跟踪，mode=0代表预测
 def calculate_dynamic_sleep(diff_x, diff_y, max_diff, min_sleep, max_sleep):
@@ -42,6 +45,67 @@ def calculate_dynamic_sleep(diff_x, diff_y, max_diff, min_sleep, max_sleep):
     print(sleep_time)
     return sleep_time
 
+from filterpy.kalman import KalmanFilter
+
+def initialize_kalman_filter():
+    kf = KalmanFilter(dim_x=4, dim_z=2)
+    kf.x = np.array([0., 0., 0., 0.])  # 初始状态 (位置和速度)
+    kf.F = np.array([[1, 0, 1, 0],    # 状态转移矩阵
+                     [0, 1, 0, 1],
+                     [0, 0, 1, 0],
+                     [0, 0, 0, 1]])
+    kf.H = np.array([[1, 0, 0, 0],    # 测量函数
+                     [0, 1, 0, 0]])
+    kf.P *= 1000.                    # 协方差矩阵
+    kf.R = np.array([[1, 0],         # 测量噪声
+                     [0, 1]])
+    kf.Q = np.eye(kf.dim_x) * 0.1    # 过程噪声
+
+    return kf
+
+def predict_next_position_kalman(history_centers, kf):
+    if not history_centers:
+        return None
+
+    last_center = history_centers[-1]
+    kf.predict()
+    kf.update(last_center)
+
+    predicted = kf.x[:2]  # 预测的位置
+    return int(predicted[0]), int(predicted[1])
+
+# 初始化卡尔曼滤波器
+kf = initialize_kalman_filter()
+
+
+def draw_trajectory_on_image(image, history_centers, predicted_position):
+    # 历史点颜色和尺寸
+    history_color = (255, 0, 0)  # 蓝色
+    history_size = 3
+
+    # 预测点颜色和尺寸
+    predicted_color = (0, 0, 255)  # 红色
+    predicted_size = 5
+
+    # 绘制历史轨迹点
+    for center in history_centers:
+        center_int = (int(center[0]), int(center[1]))
+        cv2.circle(image, center_int, history_size, history_color, -1)
+
+    # 绘制轨迹线
+    for i in range(1, len(history_centers)):
+        cv2.line(image, history_centers[i - 1], history_centers[i], history_color, 2)
+
+    # 绘制预测点
+    if predicted_position is not None:
+        predicted_position=(int(predicted_position[0]), int(predicted_position[1]))
+        cv2.circle(image, predicted_position, predicted_size, predicted_color, -1)
+        if history_centers:
+            # 从最后一个历史点连线到预测点
+            cv2.line(image, history_centers[-1], predicted_position, predicted_color, 2)
+
+    return image
+
 
 def display_image():
     while True:
@@ -50,6 +114,9 @@ def display_image():
 
         # 加载并显示图像
         frame = cv2.imread(sFileName)
+        # 删除文件
+        os.remove(sFileName)
+
         if frame is not None:
             frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
             # 转变成Image
@@ -59,14 +126,21 @@ def display_image():
             frame = np.array(frame)
             # RGBtoBGR满足opencv显示格式
             frame = cv2.cvtColor(frame,cv2.COLOR_RGB2BGR)
-            cv2.imshow('Image', frame)
-
             
+
             # ... [图像处理和检测代码] ...
             if kuang is not None:
                # 计算框的中心点
                 box_center_x = (kuang[0] + kuang[2]) / 2
                 box_center_y = (kuang[1] + kuang[3]) / 2
+
+                # 将新的中心点坐标添加到历史记录中
+                history_centers.append((int(box_center_x),int(box_center_y) ))
+
+                # 保持历史记录长度
+                if len(history_centers) > max_history:
+                    history_centers.pop(0)
+
 
                 if mode:
                     # 计算图像的中心点
@@ -114,18 +188,19 @@ def display_image():
                         # //DOWN_LEFT        27    /* 云台以SS的速度下俯和左转 */
                         # //DOWN_RIGHT        28    /* 云台以SS的速度下俯和右转 */
                         # //PAN_AUTO        29    /* 云台以SS的速度左右自动扫描 */
-                        
                 else:
-                    pass
-                    #TODO：运动目标轨迹预测
+                    # 调用函数进行预测
+                    predicted_position = predict_next_position_kalman(history_centers, kf)
+                    frame = draw_trajectory_on_image(frame, history_centers, predicted_position)
+            cv2.imshow('Image', frame)
                     
-            key = cv2.waitKey(50) & 0xFF
+            key = cv2.waitKey(10) & 0xFF
             if key == ord('q'):
                 break
         else:
             print("无法读取图像，请检查文件路径")
 
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
 
 def start_image_display_thread():
     display_thread = threading.Thread(target=display_image)
@@ -180,10 +255,12 @@ def DecCBFun(nPort, pBuf, nSize, pFrameInfo, nUser, nReserved2):
         print(nWidth, nHeight, nType, dwFrameNum, nStamp, sFileName)
 
         lRet = Playctrldll.PlayM4_ConvertToJpegFile(pBuf, nSize, nWidth, nHeight, nType, c_char_p(sFileName.encode()))
-
+        #每i1+1张检测一张图片
         if i1==10:
-            file_queue.put(sFileName)
+            file_queue.put(sFileName)#检测的图片放入队列
             i1=0
+        else:
+            os.remove(sFileName)#不检测的图片删除，使其不占农村
         i1=i1+1
 
         if lRet == 0:

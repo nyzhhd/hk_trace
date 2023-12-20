@@ -223,7 +223,8 @@ class YOLO(object):
 
         # 遍历所有检测框
         for i, c in enumerate(top_label):
-            if self.class_names[int(c)] == "person":
+            score = top_conf[i]
+            if self.class_names[int(c)] == "person" and score >0.03:#----------------keyboard------------------------person
                 box = top_boxes[i]
                 top, left, bottom, right = box
 

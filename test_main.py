@@ -316,6 +316,7 @@ def InputData(fileMp4, Playctrldll):
             break
 
 if __name__ == '__main__':
+    
     # 创建窗口
     win = tkinter.Tk()
     #固定窗口大小

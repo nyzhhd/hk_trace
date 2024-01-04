@@ -17,7 +17,7 @@ import cv2
 # 创建一个线程安全的队列
 file_queue = queue.Queue()
 # 登录的设备信息
-DEV_IP = create_string_buffer(b'169.254.85.211')
+DEV_IP = create_string_buffer(b'169.254.104.194')
 DEV_PORT = 8000
 DEV_USER_NAME = create_string_buffer(b'admin')
 DEV_PASSWORD = create_string_buffer(b'gyb18800')
@@ -106,8 +106,10 @@ def draw_trajectory_on_image(image, history_centers, predicted_position):
 
     return image
 
-
+prev_frame_time = 0
+new_frame_time = 0
 def display_image():
+    global prev_frame_time,new_frame_time
     while True:
         # 从队列中获取最新的文件名
         sFileName = file_queue.get()
@@ -116,18 +118,22 @@ def display_image():
         frame = cv2.imread(sFileName)
         # 删除文件
         os.remove(sFileName)
+        tuili_time=0
 
         if frame is not None:
             frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
             # 转变成Image
             frame = Image.fromarray(np.uint8(frame))
+            tuili_start_time = time.time()
             # 进行检测
             frame,kuang=yolo.detect_image(frame, crop = crop, count=count)
+            tuili_end_time = time.time()
+            tuili_time =tuili_end_time- tuili_start_time 
+
             frame = np.array(frame)
             # RGBtoBGR满足opencv显示格式
             frame = cv2.cvtColor(frame,cv2.COLOR_RGB2BGR)
             
-
             # ... [图像处理和检测代码] ...
             if kuang is not None:
                # 计算框的中心点
@@ -192,9 +198,25 @@ def display_image():
                     # 调用函数进行预测
                     predicted_position = predict_next_position_kalman(history_centers, kf)
                     frame = draw_trajectory_on_image(frame, history_centers, predicted_position)
+
+            # 时间更新
+            new_frame_time = time.time()
+            # 计算帧率
+            fps = 1 / (new_frame_time - prev_frame_time)
+            prev_frame_time = new_frame_time
+
+            # 将帧率转换为整数
+            fps = int(fps)
+
+            # 将帧率显示在窗口上
+            if tuili_time!=0:
+                cv2.putText(frame, f'FPS: {fps}   ,        pretict_time: {tuili_time}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 255, 0), 3, cv2.LINE_AA)
+            else:
+                cv2.putText(frame, f'FPS: {fps}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 255, 0), 3, cv2.LINE_AA)
+
             cv2.imshow('Image', frame)
                     
-            key = cv2.waitKey(10) & 0xFF
+            key = cv2.waitKey(5) & 0xFF
             if key == ord('q'):
                 break
         else:
@@ -256,7 +278,7 @@ def DecCBFun(nPort, pBuf, nSize, pFrameInfo, nUser, nReserved2):
 
         lRet = Playctrldll.PlayM4_ConvertToJpegFile(pBuf, nSize, nWidth, nHeight, nType, c_char_p(sFileName.encode()))
         #每i1+1张检测一张图片
-        if i1==10:
+        if i1==9:
             file_queue.put(sFileName)#检测的图片放入队列
             i1=0
         else:
@@ -301,9 +323,11 @@ def OpenPreview(Objdll, lUserId, callbackFun):
     preview_info.dwStreamType = 0  # 主码流
     preview_info.dwLinkMode = 0  # TCP
     preview_info.bBlocked = 1  # 阻塞取流
-
+    lRealPlayHandle =0
     # 开始预览并且设置回调函数回调获取实时流数据
+    #print('0000',lRealPlayHandle)
     lRealPlayHandle = Objdll.NET_DVR_RealPlay_V40(lUserId, byref(preview_info), callbackFun, None)
+    #print('1111',lRealPlayHandle)
     return lRealPlayHandle
 
 def InputData(fileMp4, Playctrldll):
